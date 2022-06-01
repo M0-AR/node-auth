@@ -2,6 +2,7 @@ import {Request, Response} from "express";
 import {getRepository} from "typeorm";
 import {User} from "../entity/user.entity";
 import bcryptjs from 'bcryptjs';
+import {sign} from 'jsonwebtoken'
 
 export const Register = async (req: Request, res: Response) => {
     const body = req.body;
@@ -39,5 +40,26 @@ export const Login = async (req: Request, res: Response) => {
         });
     }
 
-    res.send(user);
+    const accessToken = sign({
+        id: user.id
+    }, "access_secret", {expiresIn: '30s'});
+
+
+    const refreshToken = sign({
+        id: user.id
+    }, "refresh_token", {expiresIn: '1w'});
+
+    res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 //1 day
+    });
+
+    res.cookie('refresh_token', accessToken, {
+        httpOnly: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
+    });
+
+    res.send({
+        message: 'success'
+    });
 }
