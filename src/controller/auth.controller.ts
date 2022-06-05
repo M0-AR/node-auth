@@ -125,3 +125,12 @@ export const Refresh = async (req: Request, res: Response) => {
     }
 
 }
+
+export const Logout = async (req: Request, res: Response) => {
+    res.cookie('access_token', '', {maxAge: 0});
+    res.cookie('refresh_token', '', {maxAge: 0});
+
+    return res.send({
+        message: 'success'
+    });
+}
