@@ -1,8 +1,9 @@
 import {Request, Response} from "express";
-import {getRepository} from "typeorm";
+import {getRepository, MoreThanOrEqual} from "typeorm";
 import {User} from "../entity/user.entity";
 import bcryptjs from 'bcryptjs';
 import {sign, verify} from 'jsonwebtoken'
+import {Token} from "../entity/token.entity";
 
 export const Register = async (req: Request, res: Response) => {
     const body = req.body;
@@ -40,35 +41,38 @@ export const Login = async (req: Request, res: Response) => {
         });
     }
 
-    const accessToken = sign({
-        id: user.id
-    }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
-
-
     const refreshToken = sign({
         id: user.id
     }, process.env.REFRESH_SECRET || '', {expiresIn: '1w'});
-
-    res.cookie('access_token', accessToken, {
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 //1 day
-    });
 
     res.cookie('refresh_token', refreshToken, {
         httpOnly: true,
         maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
     });
 
+    const expired_at = new Date();
+    expired_at.setDate(expired_at.getDate() + 7); // expire date after one week
+
+    await getRepository(Token).save({
+        user_id: user.id,
+        token: refreshToken,
+        expired_at: expired_at
+    });
+
+    const token = sign({
+        id: user.id
+    }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
+
     res.send({
-        message: 'success'
+       token
     });
 }
 
 export const AuthenticateUser = async (req: Request, res: Response) => {
     try {
-        const cookie = req.cookies['access_token']
+        const accessToken = req.header('Authorization')?.split(' ')[1] || '';
 
-        const payload: any = verify(cookie, process.env.ACCESS_SECRET || '')
+        const payload: any = verify(accessToken, process.env.ACCESS_SECRET || '')
 
         if (!payload) {
             return res.status(401).send({
@@ -106,17 +110,23 @@ export const Refresh = async (req: Request, res: Response) => {
             });
         }
 
-        const accessToken = sign({
+        const refreshToken = await getRepository(Token).findOneBy({
+            user_id: payload.id,
+            expired_at: MoreThanOrEqual(new Date())
+        });
+
+        if (!refreshToken) {
+            return res.status(401).send({
+                message: 'unauthenticatedA'
+            });
+        }
+
+        const token = sign({
             id: payload.id
         }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
 
-        res.cookie('access_token', accessToken, {
-            httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000 //1 day
-        });
-
         return res.send({
-            message: 'success'
+            token
         });
     } catch (e) {
         return res.status(401).send({
@@ -127,7 +137,10 @@ export const Refresh = async (req: Request, res: Response) => {
 }
 
 export const Logout = async (req: Request, res: Response) => {
-    res.cookie('access_token', '', {maxAge: 0});
+    await getRepository(Token).delete({
+        token: req.cookies['refresh_token']
+    })
+
     res.cookie('refresh_token', '', {maxAge: 0});
 
     return res.send({
