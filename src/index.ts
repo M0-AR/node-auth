@@ -1,6 +1,6 @@
 require('dotenv').config()
 
-import express, {Request, Response} from 'express';
+import express from 'express';
 import cookieParser from "cookie-parser";
 import {createConnection} from "typeorm";
 import {routes} from "./routes";
@@ -13,7 +13,7 @@ createConnection().then(() => {
     app.use(cookieParser());
     app.use(cors({
         origin: ['http://localhost:3000', 'http//localhost:8080', 'http//localhost:4200'],
-        credentials: true
+        credentials: true,
     }));
 
    routes(app);
