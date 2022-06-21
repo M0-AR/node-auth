@@ -8,13 +8,15 @@ import cors from 'cors';
 
 createConnection().then(() => {
     const app = express();
+    const cors = require('cors');
 
     app.use(express.json());
     app.use(cookieParser());
-    app.use(cors({
-        origin: ['http://localhost:3000', 'http//localhost:8080', 'http//localhost:4200'],
-        credentials: true,
-    }));
+    app.use(cors())
+    // app.use(cors({
+    //     origin: ['http://localhost:3000', 'http//localhost:8080', 'http//localhost:4200'],
+    //     credentials: true,
+    // }));
 
    routes(app);
 
