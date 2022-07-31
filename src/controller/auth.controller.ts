@@ -5,6 +5,8 @@ import bcryptjs from 'bcryptjs';
 import {sign, verify} from 'jsonwebtoken'
 import {Token} from "../entity/token.entity";
 
+const speakeasy = require('speakeasy');
+
 export const Register = async (req: Request, res: Response) => {
     const body = req.body;
 
@@ -14,7 +16,7 @@ export const Register = async (req: Request, res: Response) => {
         });
     }
 
-    const {password, ...user} = await getRepository(User).save({
+    const {password, tfa_secret, ...user} = await getRepository(User).save({
         first_name: body.first_name,
         last_name: body.last_name,
         email: body.email,
@@ -41,31 +43,51 @@ export const Login = async (req: Request, res: Response) => {
         });
     }
 
-    const refreshToken = sign({
-        id: user.id
-    }, process.env.REFRESH_SECRET || '', {expiresIn: '1w'});
+    if (user.tfa_secret) {
+        return res.send({
+            id: user.id
+        });
+    }
 
-    res.cookie('refresh_token', refreshToken, {
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
+    const secret = speakeasy.generateSecret({
+        name: 'My App'
     });
-
-    const expired_at = new Date();
-    expired_at.setDate(expired_at.getDate() + 7); // expire date after one week
-
-    await getRepository(Token).save({
-        user_id: user.id,
-        token: refreshToken,
-        expired_at: expired_at
-    });
-
-    const token = sign({
-        id: user.id
-    }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
 
     res.send({
-       token
+        id: user.id,
+        secret: secret.ascii,
+        otpauth_url: secret.otpauth_url
     });
+}
+
+export const TwoFactor = async (req: Request, res: Response) => {
+    // const user = {};
+    //
+    // const refreshToken = sign({
+    //     id: user.id
+    // }, process.env.REFRESH_SECRET || '', {expiresIn: '1w'});
+    //
+    // res.cookie('refresh_token', refreshToken, {
+    //     httpOnly: true,
+    //     maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
+    // });
+    //
+    // const expired_at = new Date();
+    // expired_at.setDate(expired_at.getDate() + 7); // expire date after one week
+    //
+    // await getRepository(Token).save({
+    //     user_id: user.id,
+    //     token: refreshToken,
+    //     expired_at: expired_at
+    // });
+    //
+    // const token = sign({
+    //     id: user.id
+    // }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
+    //
+    // res.send({
+    //     token
+    // });
 }
 
 export const AuthenticateUser = async (req: Request, res: Response) => {
@@ -88,7 +110,7 @@ export const AuthenticateUser = async (req: Request, res: Response) => {
             });
         }
 
-        const {password, ...data} = user
+        const {password, tfa_secret, ...data} = user
 
         res.send(data)
     } catch (e) {

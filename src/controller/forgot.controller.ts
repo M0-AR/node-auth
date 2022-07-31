@@ -20,7 +20,7 @@ export const ForgotPassword = async (req: Request, res: Response) => {
         port: 1025
     })
 
-    const url = `http://localhost:3000/reset/${token}`;
+    const url = `http://localhost:8080/#/reset/${token}`;
 
     await transporter.sendMail({
         from: 'from@examlpe.com',
