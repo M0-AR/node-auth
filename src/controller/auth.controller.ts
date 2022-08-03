@@ -60,6 +60,13 @@ export const Login = async (req: Request, res: Response) => {
     });
 }
 
+const qrcode = require('qrcode')
+export const QR = (req: Request, res: Response) => {
+    qrcode.toDataURL('otpauth://totp/My%20App?secret=MNBWW4CMPF4DCQK2GJNVQY2HG5BWQNZZKR6SULTLJZ5S4U2INNRQ', (err: any, data: any) => {
+        res.send(`<img src="${data}" />`);
+    });
+}
+
 export const TwoFactor = async (req: Request, res: Response) => {
     // const user = {};
     //
