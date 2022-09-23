@@ -62,39 +62,70 @@ export const Login = async (req: Request, res: Response) => {
 
 const qrcode = require('qrcode')
 export const QR = (req: Request, res: Response) => {
-    qrcode.toDataURL('otpauth://totp/My%20App?secret=MNBWW4CMPF4DCQK2GJNVQY2HG5BWQNZZKR6SULTLJZ5S4U2INNRQ', (err: any, data: any) => {
+    qrcode.toDataURL('otpauth://totp/My%20App?secret=MVJF2WSFLNRHUVJPEFCEE5DLK4QWS22MNU6FEURWKEYCK4R2O4VA', (err: any, data: any) => {
         res.send(`<img src="${data}" />`);
     });
 }
 
 export const TwoFactor = async (req: Request, res: Response) => {
-    // const user = {};
-    //
-    // const refreshToken = sign({
-    //     id: user.id
-    // }, process.env.REFRESH_SECRET || '', {expiresIn: '1w'});
-    //
-    // res.cookie('refresh_token', refreshToken, {
-    //     httpOnly: true,
-    //     maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
-    // });
-    //
-    // const expired_at = new Date();
-    // expired_at.setDate(expired_at.getDate() + 7); // expire date after one week
-    //
-    // await getRepository(Token).save({
-    //     user_id: user.id,
-    //     token: refreshToken,
-    //     expired_at: expired_at
-    // });
-    //
-    // const token = sign({
-    //     id: user.id
-    // }, process.env.ACCESS_SECRET || '', {expiresIn: '30s'});
-    //
-    // res.send({
-    //     token
-    // });
+    try {
+        const id = req.body.id;
+
+        const repository = getRepository(User);
+
+        const user = await repository.findOneBy(id);
+
+        if (!user) {
+            return res.status(400).send({
+                message: "Invalid credentials"
+            });
+        }
+
+        const secret = user.tfa_secret !== '' ? user.tfa_secret : req.body.secret;
+        console.log(secret)
+        console.log(req.body.code)
+
+        // TODO: See how can you debug speakeasy.totp
+        const verified = speakeasy.totp.verify({
+            secret,
+            encoding: 'ascii',
+            token: req.body.code
+        })
+
+        console.log(verified)
+
+        if (!verified) {
+            return res.status(400).send({
+                message: "Invalid credentials"
+            });
+        }
+
+        if (user.tfa_secret === '') {
+            await repository.update(id, {tfa_secret: secret});
+        }
+
+        const accessToken = sign({id}, process.env.REFRESH_SECRET || '', {expiresIn: '30s'});
+
+        const refreshToken = sign({id}, process.env.REFRESH_SECRET || '', {expiresIn: '1w'});
+
+        res.cookie('access_token', accessToken, {
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 1000 //1 day
+        });
+
+        res.cookie('refresh_token', refreshToken, {
+            httpOnly: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000 //7 days
+        });
+
+        res.send({
+           message: 'success'
+        });
+    } catch (e) {
+        return res.status(401).send({
+            message: 'unauthenticated'
+        });
+    }
 }
 
 export const AuthenticateUser = async (req: Request, res: Response) => {
