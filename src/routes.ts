@@ -5,7 +5,7 @@ import {ForgotPassword, ResetPassword} from "./controller/forgot.controller";
 export const routes = (router: Router) => {
     router.post('/api/register', Register);
     router.post('/api/login', Login);
-    router.post('/api/two-factor', TwoFactor);
+    router.post('/api/two-factor', TwoFactor);// TODO: a problem with this
     router.get('/api/user', AuthenticateUser);
     router.post('/api/refresh', Refresh);
     router.post('/api/logout', Logout);
